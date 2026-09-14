@@ -4,8 +4,8 @@ USER -> POLICIES -> (ANALYSIS, RISK_ANALYSIS, VERIFICATION)
 All records are linked by IDs, exactly like the PostgreSQL architecture spec.
 """
 import uuid
-from datetime import datetime, timezone
-from sqlalchemy import String, Integer, Text, ForeignKey, DateTime, JSON
+from datetime import datetime, timezone, date
+from sqlalchemy import String, Integer, Text, ForeignKey, DateTime, Date, JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database import Base
 
@@ -43,6 +43,8 @@ class Policy(Base):
     extracted_text: Mapped[str] = mapped_column(Text, default="")
     ipfs_cid: Mapped[str] = mapped_column(String(120), default="")
     document_hash: Mapped[str] = mapped_column(String(80), default="")
+    policy_start_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    policy_end_date: Mapped[date | None] = mapped_column(Date, nullable=True)
 
     user: Mapped["User"] = relationship(back_populates="policies")
     analysis: Mapped["Analysis"] = relationship(back_populates="policy", cascade="all, delete-orphan", uselist=False)
@@ -99,6 +101,36 @@ class Verification(Base):
     verified_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
     policy: Mapped["Policy"] = relationship(back_populates="verification")
+
+
+class Alert(Base):
+    __tablename__ = "alerts"
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=_uuid)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    policy_id: Mapped[str] = mapped_column(ForeignKey("policies.id", ondelete="CASCADE"), index=True)
+    type: Mapped[str] = mapped_column(String(20))          # FRAUD | RENEWAL
+    severity: Mapped[str] = mapped_column(String(20))      # low | medium | high | critical
+    title: Mapped[str] = mapped_column(String(255))
+    message: Mapped[str] = mapped_column(Text)
+    dedupe_key: Mapped[str] = mapped_column(String(160), index=True)
+    meta: Mapped[dict] = mapped_column(JSON, default=dict)
+    status: Mapped[str] = mapped_column(String(20), default="ACTIVE")  # ACTIVE | RESOLVED | DISMISSED
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+    read_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class VerificationLog(Base):
+    __tablename__ = "verification_logs"
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=_uuid)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    policy_id: Mapped[str] = mapped_column(ForeignKey("policies.id", ondelete="CASCADE"), index=True)
+    policy_name: Mapped[str] = mapped_column(String(255), default="")
+    source: Mapped[str] = mapped_column(String(20))        # MANUAL | REUPLOAD | AUTO_SWEEP
+    query: Mapped[str] = mapped_column(Text, default="")
+    stored_hash: Mapped[str] = mapped_column(String(80), default="")
+    current_hash: Mapped[str] = mapped_column(String(80), default="")
+    result: Mapped[str] = mapped_column(String(30))        # VERIFIED | DOCUMENT_MODIFIED
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
 
 class ChatMessage(Base):

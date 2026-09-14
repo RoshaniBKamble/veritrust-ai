@@ -80,6 +80,8 @@ async def analyze_policy(policy_text: str, category: str) -> dict:
   "limitations": [{{"item": "limitation / cap", "simple": "very simple explanation"}}],
   "important_terms": [{{"term": "term", "simple": "very simple explanation"}}],
   "premium_info": "premium details if present, else 'Not specified in document'",
+  "policy_start_date": "YYYY-MM-DD if a policy start / commencement / inception date is stated in the text, else null",
+  "policy_end_date": "YYYY-MM-DD if a policy end / expiry / maturity date is stated (or derivable from start date + policy term), else null",
   "recommendations": ["short actionable recommendation 1", "recommendation 2", ...],
   "simple_explanation": "One friendly paragraph (4-6 sentences) explaining this policy to a normal person with no insurance knowledge",
   "risk_factors": {{ {", ".join([f'"{f}": {{"score": <0-100 integer>, "reason": "why this score"}}' for f in factors])} }}
@@ -89,6 +91,7 @@ Rules:
 - risk score per factor: 0 = very safe/favorable for the customer, 100 = very risky/unfavorable.
 - Base every value strictly on the ACTUAL policy text. If information is missing, say so and treat missing critical info as higher risk.
 - Keep all "simple" explanations very short and jargon-free.
+- NEVER invent dates. Use null for policy_start_date / policy_end_date unless the document clearly states them.
 
 POLICY TEXT:
 \"\"\"

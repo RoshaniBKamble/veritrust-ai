@@ -1,7 +1,8 @@
 """Pydantic request/response schemas."""
-from datetime import datetime
+from datetime import datetime, date
 from typing import Optional, List, Any
 from pydantic import BaseModel, EmailStr, Field
+from app import blockchain
 
 
 class RegisterRequest(BaseModel):
@@ -77,6 +78,7 @@ class VerificationOut(BaseModel):
     network: str
     status: str
     verified_at: datetime
+    ledger_mode: str = Field(default_factory=lambda: blockchain.MODE)
 
     class Config:
         from_attributes = True
@@ -92,6 +94,8 @@ class PolicySummary(BaseModel):
     risk_score: Optional[int] = None
     risk_level: Optional[str] = None
     verification_status: Optional[str] = None
+    policy_end_date: Optional[date] = None
+    days_to_expiry: Optional[int] = None
 
 
 class PolicyDetail(BaseModel):
@@ -104,6 +108,9 @@ class PolicyDetail(BaseModel):
     file_size: int
     ipfs_cid: str
     document_hash: str
+    policy_start_date: Optional[date] = None
+    policy_end_date: Optional[date] = None
+    days_to_expiry: Optional[int] = None
     analysis: Optional[AnalysisOut] = None
     risk: Optional[RiskOut] = None
     verification: Optional[VerificationOut] = None
@@ -121,3 +128,8 @@ class CompareRequest(BaseModel):
 
 class VerifyHashRequest(BaseModel):
     query: str  # SHA-256 hash or policy id
+
+
+class PolicyDatesUpdate(BaseModel):
+    policy_start_date: Optional[date] = None
+    policy_end_date: Optional[date] = None

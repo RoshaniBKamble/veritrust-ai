@@ -1,5 +1,6 @@
 """Policy routes: upload (full pipeline), list/history, detail, delete, dashboard, compare."""
 import os
+from datetime import date
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from fastapi.responses import Response
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -7,14 +8,34 @@ from sqlalchemy import select, func
 
 from app.database import get_db
 from app.models import User, Policy, Analysis, RiskAnalysis, Verification
-from app.schemas import PolicySummary, PolicyDetail, AnalysisOut, RiskOut, VerificationOut, CompareRequest
+from app.schemas import PolicySummary, PolicyDetail, AnalysisOut, RiskOut, VerificationOut, CompareRequest, PolicyDatesUpdate
 from app.auth import get_current_user
-from app import ocr, ipfs, blockchain, ai
+from app import ocr, ipfs, blockchain, ai, alerts
 
 router = APIRouter(prefix="/policies", tags=["policies"])
 
 ALLOWED_EXT = {".pdf", ".jpg", ".jpeg", ".png"}
 CATEGORIES = {"health", "vehicle", "home", "travel", "life"}
+
+
+def _parse_date(value) -> date | None:
+    if not isinstance(value, str) or not value.strip():
+        return None
+    try:
+        return date.fromisoformat(value.strip()[:10])
+    except ValueError:
+        return None
+
+
+def _detail(policy: Policy) -> PolicyDetail:
+    return PolicyDetail(
+        id=policy.id, policy_name=policy.policy_name, category=policy.category,
+        upload_date=policy.upload_date, file_name=policy.file_name, file_type=policy.file_type,
+        file_size=policy.file_size, ipfs_cid=policy.ipfs_cid, document_hash=policy.document_hash,
+        policy_start_date=policy.policy_start_date, policy_end_date=policy.policy_end_date,
+        days_to_expiry=alerts.days_to_expiry(policy.policy_end_date),
+        analysis=_analysis_out(policy.analysis), risk=_risk_out(policy.risk), verification=_verif_out(policy.verification),
+    )
 
 
 def _analysis_out(a: Analysis | None):
@@ -90,6 +111,8 @@ async def upload_policy(
         extracted_text=text[:200000],
         ipfs_cid=cid,
         document_hash=document_hash,
+        policy_start_date=_parse_date(a.get("policy_start_date")),
+        policy_end_date=_parse_date(a.get("policy_end_date")),
     )
     db.add(policy)
     await db.flush()
@@ -131,14 +154,10 @@ async def upload_policy(
     )
     db.add_all([analysis, risk, verification])
     await db.commit()
+    await alerts.run_renewal_check(db, current)
 
     policy = await _load_full(db, policy.id, current.id)
-    return PolicyDetail(
-        id=policy.id, policy_name=policy.policy_name, category=policy.category,
-        upload_date=policy.upload_date, file_name=policy.file_name, file_type=policy.file_type,
-        file_size=policy.file_size, ipfs_cid=policy.ipfs_cid, document_hash=policy.document_hash,
-        analysis=_analysis_out(policy.analysis), risk=_risk_out(policy.risk), verification=_verif_out(policy.verification),
-    )
+    return _detail(policy)
 
 
 @router.get("", response_model=list[PolicySummary])
@@ -154,6 +173,8 @@ async def list_policies(current: User = Depends(get_current_user), db: AsyncSess
             risk_score=p.risk.overall_score if p.risk else None,
             risk_level=p.risk.risk_level if p.risk else None,
             verification_status=p.verification.status if p.verification else None,
+            policy_end_date=p.policy_end_date,
+            days_to_expiry=alerts.days_to_expiry(p.policy_end_date),
         ))
     return out
 
@@ -188,6 +209,7 @@ async def dashboard(current: User = Depends(get_current_user), db: AsyncSession 
     return {
         "total_policies": total,
         "verified_policies": verified,
+        "ledger_mode": blockchain.MODE,
         "average_risk_score": avg,
         "category_distribution": [{"name": k, "value": v} for k, v in category_dist.items()],
         "risk_level_distribution": [{"name": k, "value": v} for k, v in level_dist.items()],
@@ -198,12 +220,21 @@ async def dashboard(current: User = Depends(get_current_user), db: AsyncSession 
 @router.get("/{policy_id}", response_model=PolicyDetail)
 async def get_policy(policy_id: str, current: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     p = await _load_full(db, policy_id, current.id)
-    return PolicyDetail(
-        id=p.id, policy_name=p.policy_name, category=p.category, upload_date=p.upload_date,
-        file_name=p.file_name, file_type=p.file_type, file_size=p.file_size,
-        ipfs_cid=p.ipfs_cid, document_hash=p.document_hash,
-        analysis=_analysis_out(p.analysis), risk=_risk_out(p.risk), verification=_verif_out(p.verification),
-    )
+    return _detail(p)
+
+
+@router.patch("/{policy_id}/dates", response_model=PolicyDetail)
+async def update_dates(policy_id: str, payload: PolicyDatesUpdate, current: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    p = await _load_full(db, policy_id, current.id)
+    if payload.policy_start_date and payload.policy_end_date and payload.policy_end_date < payload.policy_start_date:
+        raise HTTPException(status_code=400, detail="End date must be after the start date.")
+    p.policy_start_date = payload.policy_start_date
+    p.policy_end_date = payload.policy_end_date
+    await alerts.reset_renewal_alerts(db, p.id)
+    await db.commit()
+    await alerts.run_renewal_check(db, current)
+    p = await _load_full(db, policy_id, current.id)
+    return _detail(p)
 
 
 @router.delete("/{policy_id}")

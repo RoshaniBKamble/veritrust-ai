@@ -27,7 +27,10 @@ Three pillars: **AI Intelligence · Simple Policy Understanding · Blockchain Tr
 - ⚖️ **Policy Comparison** — A vs B with AI recommendation
 - 🧾 **PDF Report** — professional downloadable analysis report
 - 🔗 **Blockchain Verification** — SHA-256 hash + IPFS CID + on-chain tx, real tamper detection
-- 📚 **Persistent History** — PostgreSQL; data survives logout/login
+- 🚨 **Fraud Alerts** — automatic integrity sweep + "re-verify a copy"; an alert fires the moment a
+  document's SHA-256 hash stops matching its on-chain record (never simulated)
+- ⏰ **Renewal Reminders** — AI-extracted (editable) expiry dates, reminders at 30 / 15 / 7 days
+- 📚 **Persistent History** — PostgreSQL; data survives logout/login; no seeded/demo data
 
 ## Tech Stack
 
@@ -108,7 +111,8 @@ to a web3 contract call (the interface matches the Solidity contract exactly).
 | Auth | `POST /api/auth/register`, `POST /api/auth/login`, `GET/PUT /api/auth/me` |
 | Policies | `POST /api/policies/upload`, `GET /api/policies`, `GET /api/policies/dashboard`, `GET /api/policies/{id}`, `DELETE /api/policies/{id}`, `GET /api/policies/{id}/document`, `POST /api/policies/compare` |
 | AI | `POST /api/ai/ask/{policy_id}`, `GET /api/ai/history/{policy_id}` |
-| Verification | `POST /api/verify`, `GET /api/verify/{policy_id}` |
+| Verification | `POST /api/verify`, `POST /api/verify/reupload`, `GET /api/verify/history`, `GET /api/verify/{policy_id}` |
+| Alerts | `GET /api/alerts`, `POST /api/alerts/{id}/read`, `POST /api/alerts/{id}/dismiss`, `POST /api/alerts/read-all`, `GET /api/renewals`, `PATCH /api/policies/{id}/dates` |
 | Reports | `GET /api/report/{policy_id}` (PDF) |
 
 ## Security
@@ -122,5 +126,8 @@ For zero-friction demos, blockchain and IPFS run in **simulated** mode: SHA-256 
 CIDv0 identifiers are **real and cryptographically valid**, tamper detection genuinely recomputes
 the hash from the stored document, and a Polygon-style transaction hash + block number are produced.
 Deploy `DocumentVerification.sol` and provide RPC + key to go fully on-chain — no code redesign needed.
+The UI always states which mode is active: records show a **"Simulated ledger · dev mode"** badge until
+both `CONTRACT_ADDRESS` and `AMOY_RPC_URL` are configured, after which they are labelled **"Live on-chain"**.
+Simulated records are never presented as real Polygon transactions.
 
 © 2026 VeriTrust AI

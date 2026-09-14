@@ -22,9 +22,41 @@ CREATE TABLE IF NOT EXISTS policies (
     file_size      INTEGER      DEFAULT 0,
     extracted_text TEXT         DEFAULT '',
     ipfs_cid       VARCHAR(120) DEFAULT '',
-    document_hash  VARCHAR(80)  DEFAULT ''          -- SHA-256 hex
+    document_hash  VARCHAR(80)  DEFAULT '',         -- SHA-256 hex
+    policy_start_date DATE,
+    policy_end_date   DATE                          -- drives renewal reminders
 );
 CREATE INDEX IF NOT EXISTS idx_policies_user ON policies(user_id);
+
+CREATE TABLE IF NOT EXISTS alerts (
+    id         VARCHAR PRIMARY KEY,
+    user_id    VARCHAR NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    policy_id  VARCHAR NOT NULL REFERENCES policies(id) ON DELETE CASCADE,
+    type       VARCHAR(20)  NOT NULL,               -- FRAUD | RENEWAL
+    severity   VARCHAR(20)  NOT NULL,               -- low | medium | high | critical
+    title      VARCHAR(255) NOT NULL,
+    message    TEXT         NOT NULL,
+    dedupe_key VARCHAR(160) NOT NULL,
+    meta       JSONB,
+    status     VARCHAR(20)  DEFAULT 'ACTIVE',       -- ACTIVE | RESOLVED | DISMISSED
+    created_at TIMESTAMPTZ  DEFAULT now(),
+    read_at    TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS idx_alerts_user ON alerts(user_id);
+CREATE INDEX IF NOT EXISTS idx_alerts_dedupe ON alerts(dedupe_key);
+
+CREATE TABLE IF NOT EXISTS verification_logs (
+    id           VARCHAR PRIMARY KEY,
+    user_id      VARCHAR NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    policy_id    VARCHAR NOT NULL REFERENCES policies(id) ON DELETE CASCADE,
+    policy_name  VARCHAR(255),
+    source       VARCHAR(20) NOT NULL,              -- MANUAL | REUPLOAD | AUTO_SWEEP
+    query        TEXT,
+    stored_hash  VARCHAR(80),
+    current_hash VARCHAR(80),
+    result       VARCHAR(30) NOT NULL,              -- VERIFIED | DOCUMENT_MODIFIED
+    created_at   TIMESTAMPTZ DEFAULT now()
+);
 
 CREATE TABLE IF NOT EXISTS analysis (
     id                    VARCHAR PRIMARY KEY,

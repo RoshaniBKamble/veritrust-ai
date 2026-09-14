@@ -1,0 +1,29 @@
+{
+  "summary": "Full frontend regression of the new Fraud Alerts + Renewal Reminders features on top of the existing VeriTrust AI app. Verified 100% of the requested UI flows end-to-end against the real backend: (1) sidebar nav-link-alerts + nav-alert-bell render, no badge when zero alerts; (2) Alerts page shows all 3 stat cards, 4 tabs, alerts-empty-state, renewal-empty-state, and renewal-missing-dates listing the demo user's 2 date-less policies; (3) setting end=today+5 / start=today-30 on a policy via PolicyValidity produces policy-expiry-badge '5 days until renewal', bell count = 1, alert-card-renewal 'TEST Upload Policy expires in 5 days', renewal-row badge '5d left', dashboard-renewal-banner; (4) past end date -> alert title '...has expired' + renewal-days-badge 'Expired'; (5) start > end -> backend 400 + no persistence (invalid state rejected); (6) alert-mark-read-button clears unread-dot and bell badge; alert-dismiss-button removes the card, it shows up under Dismissed tab, and the automatic sweep does NOT re-create the dismissed alert; (7) clearing both date inputs removes the renewal alert and policy returns to policy-no-dates-state / Needs-an-expiry-date list; (8) verify/reupload of the ORIGINAL document -> verify-certificate-badge 'DOCUMENT VERIFIED' + Verified history row; ALTERED file -> 'DOCUMENT MODIFIED / HASH MISMATCH', verify-fraud-alert-link visible, alert-card-fraud raised with on-chain/current hash chips, dashboard-fraud-banner, bell red with count; (9) manual hash/ID lookup adds a 'Hash / ID lookup · Verified' verify-history-row; (10) automatic integrity sweep: after tampering /app/backend/ipfs_store/<cid>, next GET /api/alerts (triggered via Alerts page load) creates FRAUD alert with source AUTO_SWEEP, policy verification_status becomes DOCUMENT_MODIFIED (history-tampered-badge + policy-fraud-banner visible); after restoring the file the AUTO_SWEEP alert auto-RESOLVES and status returns to VERIFIED (confirmed via API); (11) brand-new registered user sees empty states everywhere (alerts, renewals, policy history, verification history, reupload panel) and no banners/bell badge; demo user's alerts and dates persist across logout/login; new user cannot see demo's alerts. Cleanup performed at end (alerts, verification_logs deleted; dates cleared; tampered file restored) so demo account is left clean.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/backend_test.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "raise_alert dedupe key strategy is correct: FRAUD alerts use fraud:<policy_id> (AUTO_SWEEP/MANUAL) and a per-hash key fraud:<policy_id>:reupload:<hash16> for REUPLOAD, which allowed the reupload alert to coexist with an AUTO_SWEEP alert during tamper test — verified in the tamper phase.",
+    "AUTO_SWEEP alert auto-resolution on integrity restoration works correctly (verified via /api/alerts after restoring the ipfs_store file). REUPLOAD-triggered alerts persist (as intended) because they capture a snapshot of an altered copy that the user held.",
+    "PolicyValidity save flow correctly propagates window event so nav-alert-bell refetches without a full route change.",
+    "CORS still allow_credentials=True with allow_origins='*' — same note carried from iteration_1. Not user-visible today (Bearer token in header, not cookies).",
+    "Register page uses data-testid='register-name-input' (not 'register-full-name-input' as the request implied). Not a bug, just a naming heads-up for future test scripts."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (validated by main agent + verified via /api/alerts, /api/policies during tamper test)", "frontend": "100% (all requested UI flows pass)"},
+  "test_credentials": "demo@veritrust.ai / demo123 (JWT Bearer in localStorage veritrust_token)",
+  "seed_data_creation": "None. Only a throwaway registered user (newtest_<epoch>@veritrust.ai / test1234) for isolation testing — may remain per instructions.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Demo account state was fully cleaned at the end (0 alerts, 0 verification_logs, both policies have NULL dates, ipfs_store file restored from /tmp/backup_ipfs which is still available if needed). Testids used: nav-link-alerts, nav-alert-bell, nav-alert-bell-count, alerts-{fraud,renewal,tracked}-stat, alerts-tab-{active,fraud,renewal,dismissed}, alerts-empty-state, renewal-{empty-state,timeline,missing-dates,missing-row,row,days-badge}, alert-card-{fraud,renewal}, alert-{title,unread-dot,mark-read-button,dismiss-button,view-policy-link}, alerts-read-all-button, policy-validity-card, policy-{edit,save,cancel}-dates-button, policy-{start,end}-date-input, policy-{expiry-badge,no-dates-state,end-date-display,fraud-banner}, dashboard-{fraud,renewal}-banner, verify-reupload-{panel,policy-select,file-input,dropzone,submit,empty}, verify-certificate-badge, verify-fraud-alert-link, verify-history-{card,row,empty}, verify-input-hash, verify-button-execute, history-tampered-badge, register-name-input (NOT register-full-name-input).",
+  "rca of the issue": "No issues found."
+}

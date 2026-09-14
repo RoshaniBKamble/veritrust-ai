@@ -4,12 +4,45 @@ import { motion } from "framer-motion";
 import {
   PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, RadialBarChart, RadialBar,
 } from "recharts";
-import { FileText, ShieldCheck, Activity, UploadCloud, ArrowRight, Loader2, Sparkles } from "lucide-react";
+import { FileText, ShieldCheck, Activity, UploadCloud, ArrowRight, Loader2, Sparkles, ShieldAlert, CalendarClock } from "lucide-react";
 import api from "@/lib/api";
+import LedgerBadge from "@/components/LedgerBadge";
 import { useAuth } from "@/context/AuthContext";
 import { categoryMeta, riskColor, riskBadgeClass, fmtDate } from "@/lib/format";
 
 const CAT_COLORS = ["#10B981", "#3B82F6", "#F59E0B", "#8B5CF6", "#EC4899"];
+
+function AlertBanner({ alerts }) {
+  const fraud = alerts.filter((a) => a.type === "FRAUD");
+  const renewal = alerts.filter((a) => a.type === "RENEWAL");
+  if (!fraud.length && !renewal.length) return null;
+  return (
+    <div className="space-y-3">
+      {fraud.length > 0 && (
+        <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} data-testid="dashboard-fraud-banner"
+          className="rounded-2xl border border-rose-500/40 bg-rose-500/10 p-5 flex flex-col sm:flex-row sm:items-center gap-4">
+          <div className="h-11 w-11 rounded-xl bg-rose-500/20 grid place-items-center shrink-0"><ShieldAlert className="h-6 w-6 text-rose-400" /></div>
+          <div className="flex-1 min-w-0">
+            <div className="font-display font-bold text-rose-300">{fraud.length === 1 ? "Fraud alert: document hash mismatch" : `${fraud.length} fraud alerts: document hash mismatches`}</div>
+            <p className="text-sm text-rose-200/80 mt-0.5 truncate">{fraud.map((a) => a.meta?.policy_name).filter(Boolean).join(", ")} no longer match{fraud.length === 1 ? "es" : ""} the on-chain record.</p>
+          </div>
+          <Link to="/alerts" data-testid="dashboard-fraud-banner-link" className="px-4 py-2 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-200 text-sm font-semibold inline-flex items-center gap-1.5 self-start sm:self-auto">Review <ArrowRight className="h-4 w-4" /></Link>
+        </motion.div>
+      )}
+      {renewal.length > 0 && (
+        <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} data-testid="dashboard-renewal-banner"
+          className="rounded-2xl border border-amber-500/40 bg-amber-500/10 p-5 flex flex-col sm:flex-row sm:items-center gap-4">
+          <div className="h-11 w-11 rounded-xl bg-amber-500/20 grid place-items-center shrink-0"><CalendarClock className="h-6 w-6 text-amber-400" /></div>
+          <div className="flex-1 min-w-0">
+            <div className="font-display font-bold text-amber-300">{renewal.length === 1 ? renewal[0].title : `${renewal.length} policies need renewal attention`}</div>
+            <p className="text-sm text-amber-200/80 mt-0.5 truncate">{renewal.length === 1 ? renewal[0].message : renewal.map((a) => a.title).join(" · ")}</p>
+          </div>
+          <Link to="/alerts" data-testid="dashboard-renewal-banner-link" className="px-4 py-2 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 text-sm font-semibold inline-flex items-center gap-1.5 self-start sm:self-auto">View renewals <ArrowRight className="h-4 w-4" /></Link>
+        </motion.div>
+      )}
+    </div>
+  );
+}
 
 function Stat({ icon: Icon, label, value, sub, color, testid }) {
   return (
@@ -29,10 +62,13 @@ function Stat({ icon: Icon, label, value, sub, color, testid }) {
 export default function Dashboard() {
   const { user } = useAuth();
   const [data, setData] = useState(null);
+  const [alerts, setAlerts] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    api.get("/policies/dashboard").then((r) => setData(r.data)).finally(() => setLoading(false));
+    Promise.all([api.get("/policies/dashboard"), api.get("/alerts", { params: { status: "ACTIVE" } })])
+      .then(([d, a]) => { setData(d.data); setAlerts(a.data.alerts); })
+      .finally(() => setLoading(false));
   }, []);
 
   if (loading) return <div className="grid place-items-center h-96"><Loader2 className="h-7 w-7 animate-spin text-emerald-400" /></div>;
@@ -54,6 +90,8 @@ export default function Dashboard() {
           <UploadCloud className="h-5 w-5" /> Upload Policy
         </Link>
       </div>
+
+      <AlertBanner alerts={alerts} />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
         <Stat testid="dashboard-total-policies-stat" icon={FileText} label="Total Policies" value={data.total_policies} color="#3B82F6" />
@@ -91,7 +129,7 @@ export default function Dashboard() {
                         <div className="text-xs text-slate-500">{meta.label} · {fmtDate(p.upload_date)}</div>
                       </div>
                       {p.risk_level && <span className={`text-xs px-2.5 py-1 rounded-full border ${riskBadgeClass(p.risk_level)}`}>{p.risk_score} · {p.risk_level}</span>}
-                      {p.verification_status === "VERIFIED" && <ShieldCheck className="h-5 w-5 text-emerald-400 shrink-0" />}
+                      {p.verification_status === "VERIFIED" ? <ShieldCheck className="h-5 w-5 text-emerald-400 shrink-0" /> : p.verification_status === "DOCUMENT_MODIFIED" ? <ShieldAlert className="h-5 w-5 text-rose-400 shrink-0" /> : null}
                     </Link>
                   );
                 })}
@@ -135,9 +173,9 @@ export default function Dashboard() {
             </div>
 
             <div className="ledger-card p-6">
-              <div className="flex items-center gap-2 mb-3"><span className="pulse-dot" /><span className="text-sm font-semibold text-emerald-300">Verification Status</span></div>
+              <div className="flex items-center justify-between gap-2 mb-3"><div className="flex items-center gap-2"><span className="pulse-dot" /><span className="text-sm font-semibold text-emerald-300">Verification Status</span></div><LedgerBadge mode={data.ledger_mode} /></div>
               <div className="font-display text-4xl font-extrabold">{data.verified_policies}<span className="text-slate-500 text-2xl">/{data.total_policies}</span></div>
-              <p className="text-sm text-slate-400 mt-1">policies anchored on-chain with SHA-256 proof.</p>
+              <p className="text-sm text-slate-400 mt-1">policies with SHA-256 proof recorded on the {data.ledger_mode === "live" ? "Polygon Amoy" : "development"} ledger.</p>
               <Link to="/verify" className="mt-4 inline-flex items-center gap-1.5 text-sm text-emerald-400 hover:underline">Open Verification Center <ArrowRight className="h-3.5 w-3.5" /></Link>
             </div>
           </div>

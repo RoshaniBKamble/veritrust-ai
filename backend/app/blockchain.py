@@ -16,7 +16,9 @@ import secrets
 
 LEDGER_PATH = os.path.join(os.environ.get("IPFS_STORAGE_DIR", "/app/backend/ipfs_store"), "_ledger.json")
 CONTRACT_ADDRESS = "0x7C3aE1f9B2De4A6c8E0b1D3f5A7c9E2b4D6f8A0c"
-NETWORK = "Polygon Amoy Testnet (simulated local EVM)"
+# "live" only when a real RPC + deployed contract are configured; otherwise records are on a local simulated ledger.
+MODE = "live" if os.environ.get("AMOY_RPC_URL") and os.environ.get("CONTRACT_ADDRESS") else "simulated"
+NETWORK = "Polygon Amoy Testnet" if MODE == "live" else "Polygon Amoy Testnet (simulated local EVM)"
 
 
 def sha256_hex(data: bytes) -> str:
@@ -60,6 +62,7 @@ def record_on_chain(document_hash: str, ipfs_cid: str) -> dict:
         "block_number": block_number,
         "contract_address": CONTRACT_ADDRESS,
         "network": NETWORK,
+        "ledger_mode": MODE,
     }
 
 

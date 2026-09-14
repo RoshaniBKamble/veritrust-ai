@@ -1,5 +1,6 @@
 """PostgreSQL async database setup using SQLAlchemy 2.0 + asyncpg."""
 import os
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 from sqlalchemy.orm import DeclarativeBase
 
@@ -22,3 +23,5 @@ async def init_db():
     from app import models  # noqa: F401
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        await conn.execute(text("ALTER TABLE policies ADD COLUMN IF NOT EXISTS policy_start_date DATE"))
+        await conn.execute(text("ALTER TABLE policies ADD COLUMN IF NOT EXISTS policy_end_date DATE"))

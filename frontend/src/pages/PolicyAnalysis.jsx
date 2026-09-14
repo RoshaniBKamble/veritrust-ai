@@ -10,6 +10,8 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 
 import api, { API } from "@/lib/api";
 import RiskGauge from "@/components/RiskGauge";
 import VoicePlayer from "@/components/VoicePlayer";
+import PolicyValidity from "@/components/PolicyValidity";
+import LedgerBadge from "@/components/LedgerBadge";
 import { categoryMeta, riskBadgeClass, riskColor, shortHash, fmtDate, LANGUAGES } from "@/lib/format";
 
 function copy(text, label = "Copied") { navigator.clipboard.writeText(text); toast.success(`${label} to clipboard`); }
@@ -83,6 +85,18 @@ export default function PolicyAnalysis() {
   return (
     <div className="space-y-6">
       <Link to="/policies" className="inline-flex items-center gap-1.5 text-sm text-slate-400 hover:text-emerald-400"><ArrowLeft className="h-4 w-4" /> Back to history</Link>
+
+      {!verified && (
+        <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} data-testid="policy-fraud-banner"
+          className="rounded-2xl border border-rose-500/40 bg-rose-500/10 p-5 flex items-start gap-4">
+          <AlertTriangle className="h-6 w-6 text-rose-400 shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <div className="font-display font-bold text-rose-300">Fraud alert — document hash mismatch</div>
+            <p className="text-sm text-rose-200/80 mt-1">This document's SHA-256 fingerprint no longer matches the record anchored on-chain. Treat its contents as untrusted until you confirm with your insurer.</p>
+          </div>
+          <Link to="/alerts" className="text-sm text-rose-300 hover:underline shrink-0">View alerts</Link>
+        </motion.div>
+      )}
 
       {/* Header */}
       <div className="card-v p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -206,6 +220,9 @@ export default function PolicyAnalysis() {
             )}
           </div>
 
+          {/* Validity / renewal */}
+          <PolicyValidity policy={p} onUpdated={setP} />
+
           {/* Blockchain verification */}
           <div className="ledger-card p-6" data-testid="policy-blockchain-verify-pill">
             <div className="flex items-center justify-between mb-4">
@@ -235,6 +252,9 @@ export default function PolicyAnalysis() {
               </div>
               <div className="flex items-center justify-between text-xs text-slate-500">
                 <span>Block</span><span className="text-slate-300 font-mono">#{v.block_number}</span>
+              </div>
+              <div className="flex items-center justify-between text-xs text-slate-500">
+                <span>Ledger</span><LedgerBadge mode={v.ledger_mode} />
               </div>
               <a href={`/policies/${id}/document`} onClick={(e) => { e.preventDefault(); const t = localStorage.getItem("veritrust_token"); fetch(`${API}/policies/${id}/document`, { headers: { Authorization: `Bearer ${t}` } }).then(r => r.blob()).then(b => window.open(URL.createObjectURL(b), "_blank")); }}
                 className="mt-2 inline-flex items-center gap-1.5 text-sm text-emerald-400 hover:underline"><ExternalLink className="h-3.5 w-3.5" /> View original document</a>
