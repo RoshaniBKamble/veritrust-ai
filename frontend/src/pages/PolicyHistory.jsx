@@ -99,6 +99,7 @@ export default function PolicyHistory() {
                     {em && <span className={`text-xs px-2.5 py-1 rounded-full border inline-flex items-center gap-1 ${em.cls}`} data-testid="history-expiry-badge"><CalendarClock className="h-3 w-3" /> {em.label}</span>}
                     {p.verification_status === "VERIFIED" && <span className="text-xs text-emerald-400 flex items-center gap-1"><ShieldCheck className="h-4 w-4" /> Verified</span>}
                     {tampered && <span className="text-xs text-rose-400 flex items-center gap-1" data-testid="history-tampered-badge"><ShieldAlert className="h-4 w-4" /> Hash mismatch</span>}
+                    {p.renewal_of_policy_id && <span className="text-xs px-2.5 py-1 rounded-full border bg-blue-500/10 text-blue-300 border-blue-500/30" data-testid="history-renewal-quote-badge">Renewal quote</span>}
                   </div>
                 </Link>
               </motion.div>

@@ -45,6 +45,7 @@ class Policy(Base):
     document_hash: Mapped[str] = mapped_column(String(80), default="")
     policy_start_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     policy_end_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    renewal_of_policy_id: Mapped[str | None] = mapped_column(String, nullable=True, index=True)  # quote -> original policy
 
     user: Mapped["User"] = relationship(back_populates="policies")
     analysis: Mapped["Analysis"] = relationship(back_populates="policy", cascade="all, delete-orphan", uselist=False)
@@ -130,6 +131,35 @@ class VerificationLog(Base):
     stored_hash: Mapped[str] = mapped_column(String(80), default="")
     current_hash: Mapped[str] = mapped_column(String(80), default="")
     result: Mapped[str] = mapped_column(String(30))        # VERIFIED | DOCUMENT_MODIFIED
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+
+class ClaimCheck(Base):
+    __tablename__ = "claim_checks"
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=_uuid)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    policy_id: Mapped[str] = mapped_column(ForeignKey("policies.id", ondelete="CASCADE"), index=True)
+    situation: Mapped[str] = mapped_column(Text)
+    language: Mapped[str] = mapped_column(String(10), default="en")
+    verdict: Mapped[str] = mapped_column(String(30))       # LIKELY_COVERED | LIKELY_NOT_COVERED | CONDITIONS_APPLY
+    reason: Mapped[str] = mapped_column(Text, default="")
+    clauses: Mapped[list] = mapped_column(JSON, default=list)     # [{clause, simple}]
+    conditions: Mapped[list] = mapped_column(JSON, default=list)  # [str]
+    next_steps: Mapped[list] = mapped_column(JSON, default=list)  # [str]
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+
+class RenewalComparison(Base):
+    __tablename__ = "renewal_comparisons"
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=_uuid)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    original_policy_id: Mapped[str] = mapped_column(ForeignKey("policies.id", ondelete="CASCADE"), index=True)
+    quote_policy_id: Mapped[str] = mapped_column(ForeignKey("policies.id", ondelete="CASCADE"), index=True)
+    verdict: Mapped[str] = mapped_column(String(30))       # RENEW | RENEW_WITH_CAUTION | LOOK_ELSEWHERE
+    reason: Mapped[str] = mapped_column(Text, default="")
+    summary: Mapped[str] = mapped_column(Text, default="")
+    rows: Mapped[list] = mapped_column(JSON, default=list)        # [{factor, original, quote, better}]
+    changes: Mapped[dict] = mapped_column(JSON, default=dict)     # {improved:[], worse:[], same:[]}
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
 

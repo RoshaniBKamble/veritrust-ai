@@ -180,3 +180,107 @@ async def compare_policies(a: dict, b: dict) -> dict:
         return _parse_json(raw)
     except Exception:
         return {"summary": raw, "recommendation": "", "winner": "Tie", "rows": []}
+
+
+CLAIM_VERDICTS = {"LIKELY_COVERED", "LIKELY_NOT_COVERED", "CONDITIONS_APPLY"}
+RENEWAL_VERDICTS = {"RENEW", "RENEW_WITH_CAUTION", "LOOK_ELSEWHERE"}
+
+
+async def claim_check(situation: str, policy_context: str, raw_text: str, language: str = "en") -> dict:
+    """Claim readiness guidance grounded ONLY in the uploaded policy. Never guarantees approval."""
+    lang_name = LANG_NAMES.get(language, "English")
+    system = (
+        "You are VeriTrust AI, a careful insurance claim-readiness assistant. You judge whether a described situation "
+        "is LIKELY covered by the user's own policy, using ONLY the policy content provided. You never guarantee approval. "
+        "You quote the exact clause text from the document. You ALWAYS respond with a single valid JSON object and NOTHING else."
+    )
+    prompt = f"""The user asks: "Can I claim for this?" Situation: \"\"\"{situation.strip()}\"\"\"
+
+Return ONLY this JSON (all human-readable strings in {lang_name}; quoted clauses stay in the document's original wording):
+{{
+  "verdict": "LIKELY_COVERED" | "LIKELY_NOT_COVERED" | "CONDITIONS_APPLY",
+  "reason": "ONE short, very simple sentence explaining the verdict",
+  "clauses": [{{"clause": "exact sentence(s) copied verbatim from the POLICY TEXT that decide this", "simple": "what it means in one plain sentence"}}],
+  "conditions": ["condition the user must meet or check (waiting period, limit, documents, time window) — short"],
+  "next_steps": ["practical short step, e.g. 'Keep the hospital discharge summary'"]
+}}
+
+Rules:
+- Use CONDITIONS_APPLY when coverage depends on waiting periods, sub-limits, network hospitals, prior approval, or missing details.
+- Use LIKELY_NOT_COVERED when an exclusion clearly applies. Use LIKELY_COVERED only when the policy clearly covers it.
+- If the policy does not mention the situation at all, use CONDITIONS_APPLY and say the policy does not specify it.
+- Quote 1-3 clauses maximum, verbatim from POLICY TEXT. If no exact clause exists, return an empty clauses list — never invent text.
+- Keep everything short and jargon-free.
+
+STRUCTURED POLICY INFO:
+{policy_context[:6000]}
+
+POLICY TEXT:
+\"\"\"
+{raw_text[:14000]}
+\"\"\"
+"""
+    raw = await _complete(system, prompt)
+    try:
+        data = _parse_json(raw)
+    except Exception:
+        data = {"verdict": "CONDITIONS_APPLY", "reason": raw[:400], "clauses": [], "conditions": [], "next_steps": []}
+    if data.get("verdict") not in CLAIM_VERDICTS:
+        data["verdict"] = "CONDITIONS_APPLY"
+    for k in ("clauses", "conditions", "next_steps"):
+        if not isinstance(data.get(k), list):
+            data[k] = []
+    data["reason"] = str(data.get("reason", ""))
+    return data
+
+
+async def renewal_compare(original: dict, quote: dict, days_left: int | None) -> dict:
+    """Side-by-side of an expiring policy vs its renewal quote with a careful, plain-language verdict."""
+    system = (
+        "You are VeriTrust AI. A customer's current policy is expiring and they uploaded a renewal quote. Compare them for an "
+        "ordinary person in very simple words, using ONLY the provided data. This is AI guidance, not financial advice. "
+        "ALWAYS respond with a single valid JSON object and NOTHING else."
+    )
+    deadline = f"The current policy expires in {days_left} days." if days_left is not None else "Expiry date not confirmed."
+    prompt = f"""{deadline}
+
+Return ONLY this JSON:
+{{
+  "verdict": "RENEW" | "RENEW_WITH_CAUTION" | "LOOK_ELSEWHERE",
+  "reason": "1-2 very simple sentences explaining the verdict",
+  "summary": "2-3 simple sentences summarising how the renewal quote differs from the current policy",
+  "rows": [
+    {{"factor": "Coverage", "original": "short plain text", "quote": "short plain text", "better": "ORIGINAL" | "QUOTE" | "SAME"}},
+    {{"factor": "Exclusions", ...}}, {{"factor": "Waiting Period", ...}}, {{"factor": "Claim Conditions", ...}},
+    {{"factor": "Limits", ...}}, {{"factor": "Premium", ...}}, {{"factor": "Risk Score", ...}}
+  ],
+  "changes": {{
+    "improved": ["short plain-language item that got better in the quote"],
+    "worse": ["short item that got worse in the quote"],
+    "same": ["short item that stayed the same"]
+  }}
+}}
+
+Rules:
+- Base every statement strictly on the data. If something is not specified, say 'Not specified'.
+- RENEW when the quote is equal or better overall with no new serious gaps. RENEW_WITH_CAUTION when there are some downsides worth checking. LOOK_ELSEWHERE when coverage clearly got worse or the premium rose sharply without added value.
+- Keep every string short and free of legal jargon.
+
+CURRENT (EXPIRING) POLICY:
+{json.dumps(original)[:7000]}
+
+RENEWAL QUOTE:
+{json.dumps(quote)[:7000]}
+"""
+    raw = await _complete(system, prompt)
+    try:
+        data = _parse_json(raw)
+    except Exception:
+        data = {"verdict": "RENEW_WITH_CAUTION", "reason": raw[:400], "summary": "", "rows": [], "changes": {}}
+    if data.get("verdict") not in RENEWAL_VERDICTS:
+        data["verdict"] = "RENEW_WITH_CAUTION"
+    if not isinstance(data.get("rows"), list):
+        data["rows"] = []
+    ch = data.get("changes") if isinstance(data.get("changes"), dict) else {}
+    data["changes"] = {k: (ch.get(k) if isinstance(ch.get(k), list) else []) for k in ("improved", "worse", "same")}
+    return data

@@ -16,6 +16,7 @@ import AskAI from "@/pages/AskAI";
 import VerificationCenter from "@/pages/VerificationCenter";
 import Profile from "@/pages/Profile";
 import Alerts from "@/pages/Alerts";
+import RenewalCompare from "@/pages/RenewalCompare";
 import AppLayout from "@/components/AppLayout";
 
 function FullLoader() {
@@ -55,6 +56,8 @@ function AppRoutes() {
       <Route path="/ask-ai/:id" element={<Protected><AskAI /></Protected>} />
       <Route path="/verify" element={<Protected><VerificationCenter /></Protected>} />
       <Route path="/alerts" element={<Protected><Alerts /></Protected>} />
+      <Route path="/renewals" element={<Protected><RenewalCompare /></Protected>} />
+      <Route path="/renewals/:originalId" element={<Protected><RenewalCompare /></Protected>} />
       <Route path="/profile" element={<Protected><Profile /></Protected>} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

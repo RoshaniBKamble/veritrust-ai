@@ -4,12 +4,32 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from app.database import get_db
-from app.models import User, Policy, ChatMessage
-from app.schemas import AskRequest
+from app.models import User, Policy, ChatMessage, ClaimCheck
+from app.schemas import AskRequest, ClaimCheckRequest
 from app.auth import get_current_user
 from app import ai
 
 router = APIRouter(prefix="/ai", tags=["ai"])
+
+CLAIM_DISCLAIMER = "AI policy guidance based only on your uploaded document — not a guarantee of insurer claim approval."
+
+
+def _policy_context(p: Policy) -> str:
+    parts = [f"Policy: {p.policy_name} ({p.category} insurance)"]
+    if p.analysis:
+        a = p.analysis
+        parts += [f"Summary: {a.summary}", f"Coverage: {a.coverage}", f"Exclusions: {a.exclusions}",
+                  f"Waiting period: {a.waiting_period}", f"Claim conditions: {a.claim_conditions}",
+                  f"Limitations: {a.limitations}", f"Premium: {a.premium_info}"]
+    return "\n".join(parts)
+
+
+def _claim_out(c: ClaimCheck) -> dict:
+    return {
+        "id": c.id, "policy_id": c.policy_id, "situation": c.situation, "language": c.language, "verdict": c.verdict,
+        "reason": c.reason, "clauses": c.clauses or [], "conditions": c.conditions or [], "next_steps": c.next_steps or [],
+        "disclaimer": CLAIM_DISCLAIMER, "created_at": c.created_at.isoformat(),
+    }
 
 
 async def _own_policy(db, policy_id, user_id) -> Policy:
@@ -55,3 +75,26 @@ async def chat_history(policy_id: str, current: User = Depends(get_current_user)
     )
     msgs = result.scalars().all()
     return [{"role": m.role, "content": m.content, "created_at": m.created_at.isoformat()} for m in msgs]
+
+
+@router.post("/claim-check/{policy_id}")
+async def claim_check(policy_id: str, payload: ClaimCheckRequest, current: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    p = await _own_policy(db, policy_id, current.id)
+    await db.refresh(p, ["analysis"])
+    result = await ai.claim_check(payload.situation, _policy_context(p), p.extracted_text or "", payload.language)
+    check = ClaimCheck(
+        user_id=current.id, policy_id=p.id, situation=payload.situation.strip(), language=payload.language,
+        verdict=result["verdict"], reason=result["reason"], clauses=result["clauses"],
+        conditions=result["conditions"], next_steps=result["next_steps"],
+    )
+    db.add(check)
+    await db.commit()
+    await db.refresh(check)
+    return _claim_out(check)
+
+
+@router.get("/claim-checks/{policy_id}")
+async def claim_checks(policy_id: str, current: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    await _own_policy(db, policy_id, current.id)
+    r = await db.execute(select(ClaimCheck).where(ClaimCheck.policy_id == policy_id, ClaimCheck.user_id == current.id).order_by(ClaimCheck.created_at.desc()))
+    return [_claim_out(c) for c in r.scalars().all()]

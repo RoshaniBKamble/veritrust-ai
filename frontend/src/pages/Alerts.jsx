@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import {
-  Bell, ShieldAlert, CalendarClock, Loader2, CheckCheck, X, ArrowRight, ShieldCheck, CalendarX2, CalendarPlus, Hash,
+  Bell, ShieldAlert, CalendarClock, Loader2, CheckCheck, X, ArrowRight, ShieldCheck, CalendarX2, CalendarPlus, Hash, RefreshCw,
 } from "lucide-react";
 import api from "@/lib/api";
 import { categoryMeta, fmtDate, shortHash, severityClass, expiryMeta, notifyAlertsChanged } from "@/lib/format";
@@ -43,6 +43,7 @@ function AlertCard({ a, onRead, onDismiss }) {
           )}
           <div className="mt-4 flex flex-wrap items-center gap-2">
             <Link to={`/policy/${a.policy_id}`} data-testid="alert-view-policy-link" className="text-sm text-emerald-400 hover:underline inline-flex items-center gap-1">View policy <ArrowRight className="h-3.5 w-3.5" /></Link>
+            {!fraud && <Link to={`/renewals/${a.policy_id}`} data-testid="alert-compare-renewal-link" className="text-sm text-amber-300 hover:underline inline-flex items-center gap-1"><RefreshCw className="h-3.5 w-3.5" /> Compare renewal quote</Link>}
             {a.status === "ACTIVE" && (
               <>
                 {unread && <button onClick={() => onRead(a)} data-testid="alert-mark-read-button" className="ml-auto text-xs px-3 py-1.5 rounded-lg border border-slate-700 hover:border-emerald-500/40 text-slate-300 inline-flex items-center gap-1"><CheckCheck className="h-3.5 w-3.5" /> Mark read</button>}
@@ -68,7 +69,7 @@ function RenewalRow({ r }) {
           <div className="font-semibold truncate">{r.policy_name}</div>
           <span className={`text-xs px-2.5 py-1 rounded-full border shrink-0 ${em.cls}`} data-testid="renewal-days-badge">{em.label}</span>
         </div>
-        <div className="text-xs text-slate-500 mt-0.5">{meta.label} · Ends {fmtDate(r.policy_end_date)}</div>
+        <div className="text-xs text-slate-500 mt-0.5 flex items-center justify-between gap-2"><span>{meta.label} · Ends {fmtDate(r.policy_end_date)}</span><Link to={`/renewals/${r.id}`} onClick={(e) => e.stopPropagation()} data-testid="renewal-row-compare-link" className="text-amber-300 hover:underline inline-flex items-center gap-1 shrink-0"><RefreshCw className="h-3 w-3" /> Compare quote</Link></div>
         <div className="mt-2 h-1.5 rounded-full bg-slate-800 overflow-hidden"><div className="h-full rounded-full" style={{ width: `${pct}%`, background: em.color }} /></div>
       </div>
     </Link>

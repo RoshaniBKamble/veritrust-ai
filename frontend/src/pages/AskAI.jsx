@@ -2,8 +2,9 @@ import { useEffect, useState, useRef } from "react";
 import { useParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
-import { Send, Loader2, Sparkles, MessageSquareText, Bot, User as UserIcon } from "lucide-react";
+import { Send, Loader2, Sparkles, MessageSquareText, Bot, User as UserIcon, ClipboardCheck } from "lucide-react";
 import api, { formatApiError } from "@/lib/api";
+import ClaimCheck from "@/components/ClaimCheck";
 import { LANGUAGES, categoryMeta } from "@/lib/format";
 import { useAuth } from "@/context/AuthContext";
 
@@ -25,6 +26,7 @@ export default function AskAI() {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [mode, setMode] = useState("chat");
   const scrollRef = useRef();
 
   useEffect(() => { api.get("/policies").then((r) => { setPolicies(r.data); if (!policyId && r.data[0]) setPolicyId(r.data[0].id); }); }, []); // eslint-disable-line
@@ -96,7 +98,16 @@ export default function AskAI() {
           </div>
         </div>
 
-        <div className="lg:col-span-8">
+        <div className="lg:col-span-8 space-y-4">
+          <div className="flex gap-2 bg-slate-900/40 rounded-xl p-1 border border-slate-800 w-fit">
+            <button onClick={() => setMode("chat")} data-testid="ask-ai-mode-chat" className={`px-4 py-2 rounded-lg text-sm font-medium inline-flex items-center gap-2 ${mode === "chat" ? "bg-emerald-500/15 text-emerald-300" : "text-slate-400 hover:text-slate-200"}`}><MessageSquareText className="h-4 w-4" /> Chat</button>
+            <button onClick={() => setMode("claim")} data-testid="ask-ai-mode-claim" className={`px-4 py-2 rounded-lg text-sm font-medium inline-flex items-center gap-2 ${mode === "claim" ? "bg-emerald-500/15 text-emerald-300" : "text-slate-400 hover:text-slate-200"}`}><ClipboardCheck className="h-4 w-4" /> Can I claim?</button>
+          </div>
+          {mode === "claim" ? (
+            <div className="card-v p-6" data-testid="ask-ai-claim-panel">
+              {policyId ? <ClaimCheck policyId={policyId} defaultLang={lang} /> : <p className="text-sm text-slate-400">Select a policy to run a claim check.</p>}
+            </div>
+          ) : (
           <div className="card-v flex flex-col h-[70vh]">
             <div ref={scrollRef} className="flex-1 overflow-y-auto p-6 space-y-4" data-testid="ask-ai-chat-thread">
               {messages.length === 0 && !loading && (
@@ -135,6 +146,7 @@ export default function AskAI() {
               </div>
             </div>
           </div>
+          )}
         </div>
       </div>
     </div>

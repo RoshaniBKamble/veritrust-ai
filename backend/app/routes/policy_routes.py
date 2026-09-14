@@ -34,6 +34,7 @@ def _detail(policy: Policy) -> PolicyDetail:
         file_size=policy.file_size, ipfs_cid=policy.ipfs_cid, document_hash=policy.document_hash,
         policy_start_date=policy.policy_start_date, policy_end_date=policy.policy_end_date,
         days_to_expiry=alerts.days_to_expiry(policy.policy_end_date),
+        renewal_of_policy_id=policy.renewal_of_policy_id,
         analysis=_analysis_out(policy.analysis), risk=_risk_out(policy.risk), verification=_verif_out(policy.verification),
     )
 
@@ -63,6 +64,7 @@ async def _load_full(db: AsyncSession, policy_id: str, user_id: str) -> Policy:
 async def upload_policy(
     category: str = Form(...),
     policy_name: str = Form(""),
+    renewal_of: str = Form(""),
     file: UploadFile = File(...),
     current: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -70,6 +72,11 @@ async def upload_policy(
     category = category.lower().strip()
     if category not in CATEGORIES:
         raise HTTPException(status_code=400, detail="Invalid insurance category.")
+    renewal_of = renewal_of.strip() or None
+    if renewal_of:
+        orig = await db.execute(select(Policy).where(Policy.id == renewal_of, Policy.user_id == current.id))
+        if not orig.scalar_one_or_none():
+            raise HTTPException(status_code=404, detail="The policy this renewal quote belongs to was not found.")
     ext = os.path.splitext(file.filename or "")[1].lower()
     if ext not in ALLOWED_EXT:
         raise HTTPException(status_code=400, detail="Unsupported file type. Use PDF, JPG, JPEG or PNG.")
@@ -113,6 +120,7 @@ async def upload_policy(
         document_hash=document_hash,
         policy_start_date=_parse_date(a.get("policy_start_date")),
         policy_end_date=_parse_date(a.get("policy_end_date")),
+        renewal_of_policy_id=renewal_of,
     )
     db.add(policy)
     await db.flush()
@@ -175,6 +183,7 @@ async def list_policies(current: User = Depends(get_current_user), db: AsyncSess
             verification_status=p.verification.status if p.verification else None,
             policy_end_date=p.policy_end_date,
             days_to_expiry=alerts.days_to_expiry(p.policy_end_date),
+            renewal_of_policy_id=p.renewal_of_policy_id,
         ))
     return out
 

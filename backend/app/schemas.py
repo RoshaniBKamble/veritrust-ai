@@ -96,6 +96,7 @@ class PolicySummary(BaseModel):
     verification_status: Optional[str] = None
     policy_end_date: Optional[date] = None
     days_to_expiry: Optional[int] = None
+    renewal_of_policy_id: Optional[str] = None
 
 
 class PolicyDetail(BaseModel):
@@ -111,6 +112,7 @@ class PolicyDetail(BaseModel):
     policy_start_date: Optional[date] = None
     policy_end_date: Optional[date] = None
     days_to_expiry: Optional[int] = None
+    renewal_of_policy_id: Optional[str] = None
     analysis: Optional[AnalysisOut] = None
     risk: Optional[RiskOut] = None
     verification: Optional[VerificationOut] = None
@@ -133,3 +135,17 @@ class VerifyHashRequest(BaseModel):
 class PolicyDatesUpdate(BaseModel):
     policy_start_date: Optional[date] = None
     policy_end_date: Optional[date] = None
+
+
+class ClaimCheckRequest(BaseModel):
+    situation: str = Field(min_length=5, max_length=1500)
+    language: str = "en"
+
+
+class RenewalCompareRequest(BaseModel):
+    original_id: str
+    quote_id: str
+
+
+class RenewalLinkRequest(BaseModel):
+    quote_id: str

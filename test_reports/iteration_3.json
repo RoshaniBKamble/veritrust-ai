@@ -1,0 +1,25 @@
+{
+  "summary": "Full end-to-end test of the two new features on VeriTrust AI: (1) Claim Readiness Check (POST /api/ai/claim-check/:id, GET /api/ai/claim-checks/:id, policy-page card + Ask-AI 'Can I claim?' mode) and (2) Renewal Comparison (/renewals page, overview, link_quote, compare, latest_comparison endpoints, plus entry points on Policy Validity/Alerts/Upload). 19 backend pytest cases pass (auth gates, validation, real Claude AI claim + renewal comparison, ownership isolation, self-link/self-compare 400, no-comparison-yet 404). Frontend Playwright covered: SecureHealth Gold policy page renders claim-check-card with all 4 examples, 3 language toggles, submit, and history list (persisted check from backend visible + expands on click). /renewals sidebar (8 nav items, nav-link-renewals) lists SecureHealth as original only (TEST Upload correctly excluded because it is linked as quote); persisted comparison from GET /renewals/comparison/:id loaded automatically with verdict 'Renew with Caution', reason (233 chars), 7-factor compare-table (renewal-compare-table), what-changed (improved/worse/same), disclaimer. Ask-AI mode toggle works, claim mode renders the same ClaimCheck component for the selected policy and shows the same history; chat mode regression OK. Empty states verified via a brand-new registered user (/renewals shows renewal-compare-empty, Ask-AI claim mode shows 'Select a policy', new user cannot fetch demo comparison – 404). Upload page ?renewal_of=<id> shows upload-renewal-banner (mentioning 'SecureHealth Gold') and header 'renewal quote'. Setting start=-335d/end=+30d on SecureHealth reveals policy-upload-renewal-quote-link + policy-compare-renewal-link on the Policy Validity card, and renewal-countdown '30 days left · Oct 14, 2026' on /renewals; alerts page raises alert-compare-renewal-link and renewal-row-compare-link. Policy History shows history-renewal-quote-badge 'Renewal quote' on the linked quote. Dashboard/Alerts/Verification/Compare all load without error elements. Full DB cleanup performed at end (claim_checks, renewal_comparisons, alerts, verification_logs cleared; policies dates + renewal_of nulled).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_claim_and_renewals.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "renewal_routes._own returns 404 uniformly for both non-existent and other-user policies — correct (no information leak).",
+    "claim-check schema enforces min_length=5 and max_length=1500 — matches spec (short situation → 422 verified).",
+    "renewal compare route auto-links the quote (sets renewal_of_policy_id) when compare is invoked without prior link — good UX but a little implicit; documented behavior via test coverage.",
+    "GET /api/renewals/comparison/:id returns 404 'No comparison yet.' when none exists — behavior verified for both other-user and no-record cases.",
+    "Ask-AI page reuses the same ClaimCheck component for a policy, so history stays consistent between /policy/:id and /ask-ai (verified: check created on policy page appears in Ask-AI claim mode)."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (19/19 pytest)", "frontend": "100% (all requested UI flows pass)"},
+  "test_credentials": "demo@veritrust.ai / demo123 (JWT Bearer in localStorage veritrust_token)",
+  "seed_data_creation": "Only ephemeral: one throwaway registered user (emptyuser_<epoch>@veritrust.ai / test1234) used for isolation checks; one throwaway user from backend tests (testother_<epoch>). No policies uploaded. Demo DB fully cleaned at end (claim_checks/renewal_comparisons/alerts/verification_logs deleted; renewal_of/start/end dates on demo policies nulled).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Demo user is cleaned (no claim_checks, no renewal_comparisons, no linked quotes, no policy dates). Backend tests live at /app/backend/tests/test_claim_and_renewals.py. Testids used: claim-check-{panel,input,example,lang-en/hi/mr,submit}, claim-history-{empty,list}, claim-verdict-{card-*,label,reason}, claim-clause, claim-condition, claim-disclaimer, policy-claim-check-card; renewal-{original-select,candidate-list,candidate-item,no-candidates,upload-quote-link,link-select,link-button,compare-button,comparison-result,verdict-*,verdict-label,verdict-reason,what-changed,changes-improved,changes-worse,changes-same,compare-table,disclaimer,countdown,countdown-missing,compare-empty,policy-list,policy-row,not-compared-yet}; ask-ai-{mode-chat,mode-claim,claim-panel,policy-select,chat-thread,input-field,send-button}; policy-{upload-renewal-quote-link,compare-renewal-link,edit/save-dates-button,start/end-date-input}; alert-compare-renewal-link, renewal-row-compare-link, upload-renewal-banner, history-renewal-quote-badge, nav-link-renewals. Note: throwaway new-user accounts still exist in DB — harmless.",
+  "rca of the issue": "No issues found."
+}

@@ -1,6 +1,7 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { toast } from "sonner";
-import { CalendarClock, Pencil, Save, Loader2, X } from "lucide-react";
+import { CalendarClock, Pencil, Save, Loader2, X, RefreshCw, ArrowLeftRight } from "lucide-react";
 import api, { formatApiError } from "@/lib/api";
 import { fmtDate, expiryMeta, notifyAlertsChanged } from "@/lib/format";
 
@@ -60,6 +61,12 @@ export default function PolicyValidity({ policy, onUpdated }) {
               : `${policy.days_to_expiry} day${policy.days_to_expiry === 1 ? "" : "s"} until renewal`}
           </div>
           <p className="text-xs text-slate-500">You'll be reminded 30, 15 and 7 days before expiry.</p>
+          {!policy.renewal_of_policy_id && (
+            <div className="grid grid-cols-2 gap-2 pt-1">
+              <Link to={`/upload?renewal_of=${policy.id}`} data-testid="policy-upload-renewal-quote-link" className="px-3 py-2 rounded-lg border border-emerald-500/40 bg-emerald-500/5 hover:bg-emerald-500/10 text-xs font-medium text-emerald-300 inline-flex items-center justify-center gap-1.5"><RefreshCw className="h-3.5 w-3.5" /> Upload renewal quote</Link>
+              <Link to={`/renewals/${policy.id}`} data-testid="policy-compare-renewal-link" className="px-3 py-2 rounded-lg border border-slate-700 hover:border-slate-500 text-xs font-medium text-slate-300 inline-flex items-center justify-center gap-1.5"><ArrowLeftRight className="h-3.5 w-3.5" /> Compare renewal</Link>
+            </div>
+          )}
         </div>
       ) : (
         <div className="text-sm text-slate-400" data-testid="policy-no-dates-state">

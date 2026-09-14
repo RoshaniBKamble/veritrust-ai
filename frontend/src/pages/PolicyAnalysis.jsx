@@ -12,6 +12,7 @@ import RiskGauge from "@/components/RiskGauge";
 import VoicePlayer from "@/components/VoicePlayer";
 import PolicyValidity from "@/components/PolicyValidity";
 import LedgerBadge from "@/components/LedgerBadge";
+import ClaimCheck from "@/components/ClaimCheck";
 import { categoryMeta, riskBadgeClass, riskColor, shortHash, fmtDate, LANGUAGES } from "@/lib/format";
 
 function copy(text, label = "Copied") { navigator.clipboard.writeText(text); toast.success(`${label} to clipboard`); }
@@ -170,6 +171,16 @@ export default function PolicyAnalysis() {
               </div>
             )}
             {tab === "claims" && <ListBlock title="Claim Conditions" items={a.claim_conditions} icon={ChevronRight} />}
+          </div>
+
+          {/* Claim readiness */}
+          <div className="card-v p-6" data-testid="policy-claim-check-card">
+            <div className="mb-4">
+              <div className="eyebrow mb-1">Claim Readiness</div>
+              <h3 className="font-display text-lg font-bold">Can I claim for this?</h3>
+              <p className="text-sm text-slate-400 mt-1">Describe a situation and VeriTrust AI checks it against this policy's actual clauses. Guidance only — not a claim approval.</p>
+            </div>
+            <ClaimCheck policyId={id} defaultLang={lang} />
           </div>
 
           {/* Recommendations */}

@@ -25,3 +25,4 @@ async def init_db():
         await conn.run_sync(Base.metadata.create_all)
         await conn.execute(text("ALTER TABLE policies ADD COLUMN IF NOT EXISTS policy_start_date DATE"))
         await conn.execute(text("ALTER TABLE policies ADD COLUMN IF NOT EXISTS policy_end_date DATE"))
+        await conn.execute(text("ALTER TABLE policies ADD COLUMN IF NOT EXISTS renewal_of_policy_id VARCHAR"))

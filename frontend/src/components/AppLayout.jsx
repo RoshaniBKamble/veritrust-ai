@@ -3,7 +3,7 @@ import { NavLink, useNavigate, Link, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   LayoutDashboard, UploadCloud, FolderClock, GitCompare, MessageSquareText,
-  ShieldCheck, User, LogOut, Menu, X, Hexagon, Bell,
+  ShieldCheck, User, LogOut, Menu, X, Hexagon, Bell, RefreshCw,
 } from "lucide-react";
 import api from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
@@ -16,6 +16,7 @@ const NAV = [
   { to: "/ask-ai", label: "Ask VeriTrust AI", icon: MessageSquareText, testid: "nav-link-ask-ai" },
   { to: "/verify", label: "Verification Center", icon: ShieldCheck, testid: "nav-link-verify" },
   { to: "/alerts", label: "Alerts & Renewals", icon: Bell, testid: "nav-link-alerts" },
+  { to: "/renewals", label: "Renewal Compare", icon: RefreshCw, testid: "nav-link-renewals" },
 ];
 
 function AlertBell({ counts }) {

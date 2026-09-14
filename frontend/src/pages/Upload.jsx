@@ -1,10 +1,10 @@
 import { useState, useRef, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams, Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import {
   UploadCloud, FileText, X, CheckCircle2, Loader2, ScanText, Brain, Activity,
-  Sparkles, Hash, Boxes, ShieldCheck,
+  Sparkles, Hash, Boxes, ShieldCheck, RefreshCw,
 } from "lucide-react";
 import api, { formatApiError } from "@/lib/api";
 import { CATEGORIES } from "@/lib/format";
@@ -22,13 +22,22 @@ const STEPS = [
 
 export default function Upload() {
   const navigate = useNavigate();
+  const [params] = useSearchParams();
+  const renewalOf = params.get("renewal_of") || "";
   const inputRef = useRef();
+  const [original, setOriginal] = useState(null);
   const [category, setCategory] = useState("");
   const [file, setFile] = useState(null);
   const [name, setName] = useState("");
   const [drag, setDrag] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [step, setStep] = useState(0);
+
+  useEffect(() => {
+    if (!renewalOf) return;
+    api.get(`/policies/${renewalOf}`).then((r) => { setOriginal(r.data); setCategory(r.data.category); })
+      .catch(() => toast.error("The policy to renew was not found."));
+  }, [renewalOf]);
 
   useEffect(() => {
     if (!processing) return;
@@ -54,12 +63,13 @@ export default function Upload() {
     const fd = new FormData();
     fd.append("category", category);
     fd.append("policy_name", name || file.name);
+    if (renewalOf) fd.append("renewal_of", renewalOf);
     fd.append("file", file);
     try {
       const { data } = await api.post("/policies/upload", fd, { headers: { "Content-Type": "multipart/form-data" } });
       setStep(STEPS.length);
-      toast.success("Analysis complete!");
-      setTimeout(() => navigate(`/policy/${data.id}`), 900);
+      toast.success(renewalOf ? "Renewal quote analyzed & linked!" : "Analysis complete!");
+      setTimeout(() => navigate(renewalOf ? `/renewals/${renewalOf}?quote=${data.id}` : `/policy/${data.id}`), 900);
     } catch (err) {
       setProcessing(false);
       toast.error(formatApiError(err.response?.data?.detail) || "Upload failed. Please try again.");
@@ -69,10 +79,18 @@ export default function Upload() {
   return (
     <div className="max-w-4xl mx-auto space-y-8">
       <div>
-        <div className="eyebrow mb-1">Upload & Analyze</div>
-        <h1 className="font-display text-3xl font-extrabold">Upload a policy</h1>
-        <p className="text-slate-400 mt-1">Select a category and upload your insurance document. VeriTrust AI does the rest.</p>
+        <div className="eyebrow mb-1">{renewalOf ? "Renewal Quote" : "Upload & Analyze"}</div>
+        <h1 className="font-display text-3xl font-extrabold">{renewalOf ? "Upload a renewal quote" : "Upload a policy"}</h1>
+        <p className="text-slate-400 mt-1">{renewalOf ? "The quote gets the full treatment — OCR, AI analysis, SHA-256 hash and verification — then it's linked to your expiring policy for a side-by-side." : "Select a category and upload your insurance document. VeriTrust AI does the rest."}</p>
       </div>
+
+      {renewalOf && original && (
+        <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-4 flex items-center gap-3" data-testid="upload-renewal-banner">
+          <RefreshCw className="h-5 w-5 text-emerald-400 shrink-0" />
+          <div className="text-sm flex-1 min-w-0">Renewal quote for <span className="font-semibold">{original.policy_name}</span>{original.days_to_expiry != null && <span className="text-slate-400"> · {original.days_to_expiry < 0 ? "expired" : `${original.days_to_expiry} days left`}</span>}</div>
+          <Link to="/upload" className="text-xs text-slate-400 hover:text-slate-200">Upload as a normal policy instead</Link>
+        </div>
+      )}
 
       {!processing ? (
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">

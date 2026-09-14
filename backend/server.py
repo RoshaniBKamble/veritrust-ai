@@ -15,7 +15,7 @@ from fastapi import FastAPI, APIRouter
 from starlette.middleware.cors import CORSMiddleware
 
 from app.database import init_db
-from app.routes import auth_routes, policy_routes, ai_routes, verify_routes, alert_routes
+from app.routes import auth_routes, policy_routes, ai_routes, verify_routes, alert_routes, renewal_routes
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger("veritrust")
@@ -40,6 +40,7 @@ api_router.include_router(policy_routes.router)
 api_router.include_router(ai_routes.router)
 api_router.include_router(verify_routes.router)
 api_router.include_router(alert_routes.router)
+api_router.include_router(renewal_routes.router)
 
 app.include_router(api_router)
 
